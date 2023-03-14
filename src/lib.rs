@@ -13,7 +13,7 @@
 
 #![no_std]
 
-use embedded_hal::blocking::i2c::{Read, Write};
+use embedded_hal_async::i2c::I2c;
 
 // DEFAULT ADDRESS, not currently changeable
 const KBD_ADDR: u8 = 0x1F;
@@ -30,8 +30,6 @@ pub type Result<T> = core::result::Result<T, Error>;
 
 /// A struct representing our BlackBerry Q10 PMOD Keyboard
 pub struct Bbq10Kbd<I2C>
-where
-    I2C: Read + Write
 {
     i2c: I2C
 }
@@ -101,7 +99,7 @@ pub struct KeyStatus {
 
 impl<I2C> Bbq10Kbd<I2C>
 where
-    I2C: Read + Write
+    I2C: I2c
 {
     /// Create a new BBQ10 Keyboard instance
     pub fn new(i2c: I2C) -> Self {
@@ -116,7 +114,7 @@ where
     }
 
     /// Get the version reported by the keyboard's firmware
-    pub fn get_version(&mut self) -> Result<Version> {
+    pub async fn get_version(&mut self) -> Result<Version> {
         const VERSION_REGISTER: u8 = 0x01;
         let mut buf = [0u8; 1];
 
@@ -124,12 +122,14 @@ where
 
         self.i2c
             .write(KBD_ADDR, &buf)
+            .await
             .map_err(|_| Error::I2c)?;
 
         buf[0] = 0;
 
         self.i2c
             .read(KBD_ADDR, &mut buf)
+            .await
             .map_err(|_| Error::I2c)?;
 
         let val = buf[0];
@@ -141,7 +141,7 @@ where
     }
 
     /// Obtain a single fifo item from the keyboard's firmware
-    pub fn get_fifo_key_raw(&mut self) -> Result<KeyRaw> {
+    pub async fn get_fifo_key_raw(&mut self) -> Result<KeyRaw> {
         const FIFO_REGISTER: u8 = 0x09;
         let mut buf = [0u8; 2];
 
@@ -149,12 +149,14 @@ where
 
         self.i2c
             .write(KBD_ADDR, &buf[..1])
+            .await
             .map_err(|_| Error::I2c)?;
 
         buf[0] = 0;
 
         self.i2c
             .read(KBD_ADDR, &mut buf)
+            .await
             .map_err(|_| Error::I2c)?;
 
         Ok(match buf {
@@ -166,7 +168,7 @@ where
     }
 
     /// Get the current level of backlight. All u8 values are valid
-    pub fn get_backlight(&mut self) -> Result<u8> {
+    pub async fn get_backlight(&mut self) -> Result<u8> {
         const BACKLIGHT_REGISTER_READ: u8 = 0x05;
         let mut buf = [0u8; 1];
 
@@ -174,19 +176,21 @@ where
 
         self.i2c
             .write(KBD_ADDR, &buf)
+            .await
             .map_err(|_| Error::I2c)?;
 
         buf[0] = 0;
 
         self.i2c
             .read(KBD_ADDR, &mut buf)
+            .await
             .map_err(|_| Error::I2c)?;
 
         Ok(buf[0])
     }
 
     /// Set the current level of backlight. All u8 values are valid
-    pub fn set_backlight(&mut self, level: u8) -> Result<()> {
+    pub async fn set_backlight(&mut self, level: u8) -> Result<()> {
         const BACKLIGHT_REGISTER_WRITE: u8 = 0x85;
         let mut buf = [0u8; 2];
 
@@ -195,6 +199,7 @@ where
 
         self.i2c
             .write(KBD_ADDR, &buf)
+            .await
             .map_err(|_| Error::I2c)
     }
 
@@ -202,7 +207,7 @@ where
     ///
     /// WARNING: Device may take >= 10ms to reboot. It
     /// will not be responsive during this time
-    pub fn sw_reset(&mut self) -> Result<()> {
+    pub async fn sw_reset(&mut self) -> Result<()> {
         const RESET_REGISTER: u8 = 0x08;
         let mut buf = [0u8; 1];
 
@@ -211,11 +216,12 @@ where
         // This is enough to reset the device
         self.i2c
             .write(KBD_ADDR, &buf)
+            .await
             .map_err(|_| Error::I2c)
     }
 
     /// Get the reported status of the keyboard
-    pub fn get_key_status(&mut self) -> Result<KeyStatus> {
+    pub async fn get_key_status(&mut self) -> Result<KeyStatus> {
         const KEY_STATUS_REGISTER: u8 = 0x04;
         let mut buf = [0u8; 1];
 
@@ -223,12 +229,14 @@ where
 
         self.i2c
             .write(KBD_ADDR, &buf)
+            .await
             .map_err(|_| Error::I2c)?;
 
         buf[0] = 0;
 
         self.i2c
             .read(KBD_ADDR, &mut buf)
+            .await
             .map_err(|_| Error::I2c)?;
 
         let mut resp = buf[0];
